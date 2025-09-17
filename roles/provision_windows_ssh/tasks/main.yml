@@ -177,7 +177,7 @@
     user_data: "{{ windows_user_data }}"
     network_interfaces:
       - subnet_id: "{{ aws_subnet_id }}"
-        assign_public_ip: {{ assign_public_ip_bool | bool }}
+        assign_public_ip: "{{ assign_public_ip_bool }}"
         groups: {{ effective_security_group_ids }}
   register: ec2_instance
 
