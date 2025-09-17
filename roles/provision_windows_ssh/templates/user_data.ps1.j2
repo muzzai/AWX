@@ -1,0 +1,74 @@
+<powershell>
+$ErrorActionPreference = 'Stop'
+
+$PublicKey = @'
+{{ public_key_material }}
+'@.Trim()
+$LogPath = 'C:\\Windows\\Temp\\awx-openssh-bootstrap.log'
+Start-Transcript -Path $LogPath -Append
+
+try {
+    Write-Host 'Installing OpenSSH Server capability'
+    Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null
+
+    Write-Host 'Configuring sshd service'
+    Set-Service -Name sshd -StartupType Automatic
+    if ((Get-Service sshd).Status -ne 'Running') {
+        Start-Service sshd
+    }
+
+    Write-Host 'Opening Windows Firewall for TCP/22'
+    if (-not (Get-NetFirewallRule -DisplayName 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -DisplayName 'OpenSSH-Server-In-TCP' -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow | Out-Null
+    }
+
+    $AuthDir = 'C:\\ProgramData\\ssh'
+    $AuthFile = Join-Path $AuthDir 'administrators_authorized_keys'
+    Write-Host "Writing authorized key to $AuthFile"
+    New-Item -ItemType Directory -Path $AuthDir -Force | Out-Null
+    Set-Content -Path $AuthFile -Value $PublicKey -Encoding ascii
+
+    Write-Host 'Hardening authorized_keys ACL'
+    icacls $AuthFile /inheritance:r | Out-Null
+    icacls $AuthFile /grant Administrators:F | Out-Null
+    icacls $AuthFile /grant SYSTEM:F | Out-Null
+    icacls $AuthFile /setowner Administrators | Out-Null
+
+    $SshdConfigPath = Join-Path $AuthDir 'sshd_config'
+    if (Test-Path $SshdConfigPath) {
+        Write-Host 'Updating sshd_config for key-only auth'
+        $Config = Get-Content $SshdConfigPath
+        $Config = $Config | ForEach-Object {
+            if ($_ -match '^#?PasswordAuthentication') {
+                'PasswordAuthentication no'
+            } elseif ($_ -match '^#?PubkeyAuthentication') {
+                'PubkeyAuthentication yes'
+            } else {
+                $_
+            }
+        }
+        Set-Content -Path $SshdConfigPath -Value $Config -Encoding ascii
+    }
+
+    Write-Host 'Restarting sshd to apply configuration'
+    Restart-Service sshd
+
+    $AdminProfile = "C:\\Users\\{{ windows_admin_username }}"
+    if (Test-Path $AdminProfile) {
+        $AdminSsh = Join-Path $AdminProfile '.ssh'
+        if (-not (Test-Path $AdminSsh)) {
+            Write-Host 'Ensuring Administrator .ssh directory exists'
+            New-Item -ItemType Directory -Path $AdminSsh -Force | Out-Null
+        }
+    } else {
+        Write-Warning "Profile path $AdminProfile not found during bootstrap"
+    }
+}
+catch {
+    Write-Error $_
+    throw
+}
+finally {
+    Stop-Transcript
+}
+</powershell>

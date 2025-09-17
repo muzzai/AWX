@@ -1,0 +1,23 @@
+---
+- name: Provision Windows Server 2025 with OpenSSH access
+  hosts: localhost
+  gather_facts: false
+  vars:
+    vault_role_id: "{{ lookup('env', 'VAULT_ROLE_ID') }}"
+    vault_secret_id: "{{ lookup('env', 'VAULT_SECRET_ID') }}"
+  pre_tasks:
+    - name: Assert VAULT_ROLE_ID is provided
+      ansible.builtin.assert:
+        that: vault_role_id | length > 0
+        fail_msg: "VAULT_ROLE_ID environment variable must be set in AWX credentials."
+
+    - name: Assert VAULT_SECRET_ID is provided
+      ansible.builtin.assert:
+        that: vault_secret_id | length > 0
+        fail_msg: "VAULT_SECRET_ID environment variable must be set in AWX credentials."
+
+  roles:
+    - role: provision_windows_ssh
+      vars:
+        vault_role_id: "{{ vault_role_id }}"
+        vault_secret_id: "{{ vault_secret_id }}"

@@ -1,0 +1,41 @@
+---
+aws_region: us-east-2
+aws_instance_name: awx-win-ssh
+aws_instance_type: m6i.large
+aws_subnet_id: ""
+aws_vpc_id: ""
+aws_security_group_ids: []
+create_security_group: false
+assign_public_ip: true
+ssh_ingress_cidr_blocks:
+  - 0.0.0.0/0
+additional_security_group_rules: []
+aws_volume_size_gb: 80
+aws_volume_type: gp3
+aws_root_device_name: /dev/sda1
+aws_tags:
+  Project: AWX-Windows-SSH
+  ManagedBy: Ansible
+  Environment: production
+
+ami_ssm_parameter: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
+
+route53_enabled: false
+route53_zone: example.com.
+route53_record: "{{ aws_instance_name }}.{{ route53_zone }}"
+route53_ttl: 60
+
+key_output_dir: "{{ playbook_dir }}/artifacts/ssh_keys"
+keypair_basename: "{{ aws_instance_name }}"
+keypair_comment: "{{ aws_instance_name }} via AWX"
+regenerate_keypair: true
+
+vault_addr: https://172.31.14.234:8200
+vault_ca_bundle: /etc/vault.d/tls/vault-ca-bundle.pem
+vault_namespace: ""
+vault_kv_mount: secret
+vault_secret_path: "windows/ssh/{{ aws_instance_name }}"
+vault_secret_metadata: {}
+
+windows_admin_username: Administrator
+wait_for_ssh_timeout: 900

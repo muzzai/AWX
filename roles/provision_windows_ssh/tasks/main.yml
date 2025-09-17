@@ -1,0 +1,171 @@
+---
+- name: Ensure required AWS parameters are supplied
+  ansible.builtin.assert:
+    that:
+      - aws_subnet_id | length > 0
+      - aws_region | length > 0
+      - (aws_security_group_ids | length > 0) or create_security_group | bool
+      - (not create_security_group) or (aws_vpc_id | length > 0)
+    fail_msg: >-
+      Provide aws_subnet_id and either aws_security_group_ids or enable create_security_group with aws_vpc_id.
+
+- name: Build SSH ingress rule set
+  ansible.builtin.set_fact:
+    ssh_ingress_rules: []
+  when: create_security_group | bool
+
+- name: Append SSH ingress rules for declared CIDR blocks
+  ansible.builtin.set_fact:
+    ssh_ingress_rules: "{{ ssh_ingress_rules + [ {'proto': 'tcp', 'from_port': 22, 'to_port': 22, 'cidr_ip': item} ] }}"
+  loop: "{{ ssh_ingress_cidr_blocks }}"
+  when: create_security_group | bool
+
+- name: Resolve Windows Server 2025 AMI
+  ansible.builtin.set_fact:
+    resolved_ami_id: "{{ lookup('amazon.aws.aws_ssm_parameter_store', ami_ssm_parameter, region=aws_region) }}"
+
+- name: Ensure key output directory exists
+  ansible.builtin.file:
+    path: "{{ key_output_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Generate ED25519 keypair for Windows SSH
+  community.crypto.openssh_keypair:
+    path: "{{ key_output_dir }}/{{ keypair_basename }}"
+    type: ed25519
+    comment: "{{ keypair_comment }}"
+    force: "{{ regenerate_keypair | bool }}"
+    mode: '0600'
+  register: windows_ssh_keypair
+  no_log: true
+
+- name: Read private key from disk when not regenerated
+  ansible.builtin.slurp:
+    src: "{{ key_output_dir }}/{{ keypair_basename }}"
+  register: existing_private_key
+  when: windows_ssh_keypair.private_key is not defined
+  no_log: true
+
+- name: Collect key material
+  ansible.builtin.set_fact:
+    private_key_material: >-
+      {{ windows_ssh_keypair.private_key
+         if windows_ssh_keypair.private_key is defined
+         else existing_private_key.content | b64decode }}
+    public_key_material: >-
+      {{ windows_ssh_keypair.public_key
+         if windows_ssh_keypair.public_key is defined
+         else lookup('file', key_output_dir ~ '/' ~ keypair_basename ~ '.pub') }}
+  no_log: true
+
+- name: Render Windows OpenSSH bootstrap script
+  ansible.builtin.set_fact:
+    windows_user_data: "{{ lookup('ansible.builtin.template', 'user_data.ps1.j2') }}"
+
+- name: Create security group for SSH when requested
+  amazon.aws.ec2_security_group:
+    name: "{{ aws_instance_name }}-ssh"
+    description: "SSH access for {{ aws_instance_name }}"
+    vpc_id: "{{ aws_vpc_id }}"
+    region: "{{ aws_region }}"
+    ingress: "{{ ssh_ingress_rules }}"
+    purge_rules: true
+    purge_rules_egress: false
+    tags: "{{ aws_tags }}"
+  register: created_sg
+  when: create_security_group | bool
+
+- name: Collect security group ids
+  ansible.builtin.set_fact:
+    effective_security_group_ids: >-
+      {{ ([created_sg.group_id]
+         if create_security_group | bool
+         else aws_security_group_ids) }}
+
+- name: Launch or update Windows instance
+  amazon.aws.ec2_instance:
+    name: "{{ aws_instance_name }}"
+    region: "{{ aws_region }}"
+    instance_type: "{{ aws_instance_type }}"
+    image_id: "{{ resolved_ami_id }}"
+    subnet_id: "{{ aws_subnet_id }}"
+    security_group_ids: "{{ effective_security_group_ids }}"
+    wait: true
+    wait_timeout: 900
+    key_name: "{{ omit }}"
+    assign_public_ip: "{{ assign_public_ip | bool }}"
+    tags: "{{ aws_tags }}"
+    volumes:
+      - device_name: "{{ aws_root_device_name }}"
+        ebs:
+          volume_size: "{{ aws_volume_size_gb }}"
+          volume_type: "{{ aws_volume_type }}"
+          delete_on_termination: true
+    user_data: "{{ windows_user_data }}"
+  register: ec2_instance
+
+- name: Determine target address for SSH wait
+  ansible.builtin.set_fact:
+    ssh_wait_host: >-
+      {{ ec2_instance.instances[0].public_ip_address
+         if assign_public_ip | bool and ec2_instance.instances[0].public_ip_address is defined
+         else ec2_instance.instances[0].private_ip_address }}
+
+- name: Wait until sshd is reachable on new instance
+  ansible.builtin.wait_for:
+    host: "{{ ssh_wait_host }}"
+    port: 22
+    timeout: "{{ wait_for_ssh_timeout }}"
+    delay: 30
+  when: ec2_instance.changed | bool
+
+- name: Store private key in HashiCorp Vault
+  community.hashi_vault.vault_kv2_write:
+    url: "{{ vault_addr }}"
+    ca_cert: "{{ vault_ca_bundle }}"
+    namespace: "{{ vault_namespace if (vault_namespace | default('') | length) > 0 else omit }}"
+    auth_method: approle
+    role_id: "{{ vault_role_id }}"
+    secret_id: "{{ vault_secret_id }}"
+    mount_point: "{{ vault_kv_mount }}"
+    path: "{{ vault_secret_path }}"
+    data:
+      private_key: "{{ private_key_material }}"
+      public_key: "{{ public_key_material }}"
+      instance_id: "{{ ec2_instance.instances[0].instance_id }}"
+      instance_public_ip: "{{ ec2_instance.instances[0].public_ip_address | default('') }}"
+      instance_private_ip: "{{ ec2_instance.instances[0].private_ip_address }}"
+      region: "{{ aws_region }}"
+      metadata: "{{ vault_secret_metadata }}"
+  no_log: true
+
+- name: Remove local private key material
+  ansible.builtin.file:
+    path: "{{ key_output_dir }}/{{ keypair_basename }}"
+    state: absent
+
+- name: Remove local public key material
+  ansible.builtin.file:
+    path: "{{ key_output_dir }}/{{ keypair_basename }}.pub"
+    state: absent
+
+- name: Optionally create Route53 A record
+  amazon.aws.route53:
+    state: present
+    zone: "{{ route53_zone }}"
+    record: "{{ route53_record }}"
+    type: A
+    ttl: "{{ route53_ttl }}"
+    overwrite: true
+    value: "{{ ssh_wait_host }}"
+  when: route53_enabled | bool
+
+- name: Display connection details
+  ansible.builtin.debug:
+    msg:
+      instance_id: "{{ ec2_instance.instances[0].instance_id }}"
+      public_ip: "{{ ec2_instance.instances[0].public_ip_address | default('N/A') }}"
+      private_ip: "{{ ec2_instance.instances[0].private_ip_address }}"
+      ssh_user: "{{ windows_admin_username }}"
+      vault_secret: "{{ vault_kv_mount }}/data/{{ vault_secret_path }}"
