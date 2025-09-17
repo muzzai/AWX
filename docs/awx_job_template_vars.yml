@@ -44,5 +44,5 @@ windows_temporary_password: ""
 windows_enable_rdp: false
 wait_for_ssh_timeout: 900
 
-# AMI lookup override (rarely needed)
-ami_ssm_parameter: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
+# Required Windows AMI
+aws_ami_id: ami-xxxxxxxxxxxxxxxxx

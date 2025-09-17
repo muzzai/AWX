@@ -25,6 +25,7 @@ This repository contains an Ansible project built for AWX that provisions an AWS
    ```bash
    ansible-playbook playbooks/provision-windows-ssh.yml \
      -e instanceName=prod-awx-win \
+     -e aws_ami_id=ami-0123456789abcdef0 \
      -e aws_subnet_id=subnet-1234567890abcdef \
      -e aws_vpc_id=vpc-1234567890abcdef \
      -e create_security_group=true \

@@ -13,7 +13,7 @@ Role that provisions an AWS EC2 Windows Server 2025 instance capable of OpenSSH 
 | `create_security_group` | `false` | Toggle to create a dedicated SSH security group (`<instanceName>-ssh`). Requires `aws_vpc_id`. |
 | `ssh_ingress_cidr_blocks` | `['0.0.0.0/0']` | CIDR blocks allowed to reach TCP/22 when creating a security group. |
 | `assign_public_ip` | `true` | Assigns a public IP during launch. Set to false for private-only subnets. |
-| `ami_ssm_parameter` | `/aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base` | SSM parameter used to resolve the AMI ID. |
+| `aws_ami_id` | `` | AMI ID to launch (set to a Windows Server 2025 image). |
 | `aws_tags` | `{Project: AWX-Windows-SSH, ...}` | Base tag map merged with `{'Name': instanceName}` at runtime. |
 | `route53_enabled` | `false` | Creates an A record when true. Record defaults to `<instanceName>.<route53_zone_name>`. |
 | `route53_zone_name` | `example.com.` | Hosted zone name (optional when `route53_zone_id` set). |

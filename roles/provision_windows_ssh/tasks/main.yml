@@ -88,9 +88,15 @@
   loop: "{{ ssh_ingress_cidr_blocks }}"
   when: create_security_group | bool
 
-- name: Resolve Windows Server 2025 AMI
+- name: Ensure Windows AMI ID is provided
+  ansible.builtin.assert:
+    that:
+      - aws_ami_id | default('') | length > 0
+    fail_msg: Set aws_ami_id with a valid Windows Server 2025 AMI (e.g., ami-xxxxxxxx).
+
+- name: Use provided Windows AMI ID
   ansible.builtin.set_fact:
-    resolved_ami_id: "{{ lookup('amazon.aws.aws_ssm_parameter_store', ami_ssm_parameter, region=aws_region) }}"
+    resolved_ami_id: "{{ aws_ami_id }}"
 
 - name: Ensure key output directory exists
   ansible.builtin.file:

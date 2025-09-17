@@ -3,6 +3,7 @@ instanceName: awx-win-ssh
 
 aws_region: us-east-2
 aws_instance_type: m6i.large
+aws_ami_id: ""
 aws_subnet_id: ""
 aws_vpc_id: ""
 aws_security_group_ids: []
@@ -18,8 +19,6 @@ aws_tags:
   Project: AWX-Windows-SSH
   ManagedBy: Ansible
   Environment: production
-
-ami_ssm_parameter: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
 
 route53_enabled: false
 route53_zone_name: example.com.
