@@ -158,6 +158,16 @@
          if create_security_group | bool
          else aws_security_group_ids) }}
 
+- name: Debug Vault authentication context (do not use in production)
+  ansible.builtin.debug:
+    msg:
+      vault_addr: "{{ vault_addr_effective }}"
+      vault_namespace: "{{ vault_namespace_effective }}"
+      vault_role_id: "{{ vault_role_id }}"
+      vault_secret_id: "{{ vault_secret_id }}"
+      vault_kv_mount: "{{ vault_kv_mount }}"
+      vault_secret_path: "{{ derived_vault_secret_path }}"
+      
 - name: Launch or update Windows instance
   amazon.aws.ec2_instance:
     name: "{{ derived_instance_name }}"
@@ -194,15 +204,6 @@
     delay: 30
   when: ec2_instance.changed | bool
 
-- name: Debug Vault authentication context (do not use in production)
-  ansible.builtin.debug:
-    msg:
-      vault_addr: "{{ vault_addr_effective }}"
-      vault_namespace: "{{ vault_namespace_effective }}"
-      vault_role_id: "{{ vault_role_id }}"
-      vault_secret_id: "{{ vault_secret_id }}"
-      vault_kv_mount: "{{ vault_kv_mount }}"
-      vault_secret_path: "{{ derived_vault_secret_path }}"
 
 - name: Store private key in HashiCorp Vault
   community.hashi_vault.vault_kv2_write:
