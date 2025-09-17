@@ -16,6 +16,14 @@
         that: vault_secret_id | length > 0
         fail_msg: "VAULT_SECRET_ID environment variable must be set in AWX credentials."
 
+    - name: Show detected Vault environment settings
+      ansible.builtin.debug:
+        msg:
+          VAULT_ADDR: "{{ lookup('env', 'VAULT_ADDR') }}"
+          VAULT_ROLE_ID_present: "{{ (vault_role_id | length) > 0 }}"
+          VAULT_SECRET_ID_present: "{{ (vault_secret_id | length) > 0 }}"
+          VAULT_NAMESPACE: "{{ lookup('env', 'VAULT_NAMESPACE') }}"
+
   roles:
     - role: provision_windows_ssh
       vars:
