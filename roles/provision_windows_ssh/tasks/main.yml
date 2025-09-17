@@ -212,7 +212,7 @@
       instance_private_ip: "{{ ec2_instance.instances[0].private_ip_address }}"
       region: "{{ aws_region }}"
       metadata: "{{ vault_secret_metadata }}"
-  no_log: true
+  no_log: false
 
 - name: Remove local private key material
   ansible.builtin.file:
