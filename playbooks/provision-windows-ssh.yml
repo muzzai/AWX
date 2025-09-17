@@ -26,6 +26,3 @@
 
   roles:
     - role: provision_windows_ssh
-      vars:
-        vault_role_id: "{{ vault_role_id }}"
-        vault_secret_id: "{{ vault_secret_id }}"
