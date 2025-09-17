@@ -144,7 +144,7 @@
     description: "SSH access for {{ derived_instance_name }}"
     vpc_id: "{{ aws_vpc_id }}"
     region: "{{ aws_region }}"
-    ingress: "{{ ssh_ingress_rules }}"
+    rules: "{{ ssh_ingress_rules }}"
     purge_rules: true
     purge_rules_egress: false
     tags: "{{ derived_tags }}"
