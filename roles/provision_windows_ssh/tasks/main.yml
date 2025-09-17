@@ -112,7 +112,7 @@
     force: "{{ regenerate_keypair | bool }}"
     mode: '0600'
   register: windows_ssh_keypair
-  no_log: true
+  no_log: false
 
 - name: Read private key from disk when not regenerated
   ansible.builtin.slurp:
