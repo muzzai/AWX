@@ -167,6 +167,8 @@
     wait: true
     wait_timeout: 900
     key_name: "{{ omit }}"
+    security_groups: {{ effective_security_group_ids }}
+    vpc_subnet_id: "{{ aws_subnet_id }}"
     tags: "{{ derived_tags }}"
     volumes:
       - device_name: "{{ aws_root_device_name }}"
@@ -175,10 +177,6 @@
           volume_type: "{{ aws_volume_type }}"
           delete_on_termination: true
     user_data: "{{ windows_user_data }}"
-    network_interfaces:
-      - subnet_id: "{{ aws_subnet_id }}"
-        assign_public_ip: "{{ assign_public_ip_bool }}"
-        groups: {{ effective_security_group_ids }}
   register: ec2_instance
 
 - name: Determine target address for SSH wait
