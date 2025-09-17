@@ -210,10 +210,10 @@
     msg:
       vault_addr: "{{ vault_addr_effective | default('') }}"
       vault_namespace: "{{ vault_namespace_effective | default('') }}"
-      vault_role_id_defined: {{ vault_role_id is defined }}
-      vault_secret_id_defined: {{ vault_secret_id is defined }}
-      vault_role_id_length: {{ vault_role_id | default('') | length }}
-      vault_secret_id_length: {{ vault_secret_id | default('') | length }}
+      vault_role_id_defined: "{{ vault_role_id is defined }}"
+      vault_secret_id_defined: "{{ vault_secret_id is defined }}"
+      vault_role_id_length: "{{ vault_role_id | default('') | length }}"
+      vault_secret_id_length: "{{ vault_secret_id | default('') | length }}"
       vault_kv_mount: "{{ vault_kv_mount | default('') }}"
       vault_secret_path: "{{ derived_vault_secret_path | default('') }}"
 
