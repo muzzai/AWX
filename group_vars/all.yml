@@ -27,14 +27,12 @@ route53_zone_id: ""
 route53_record: ""
 route53_ttl: 60
 
-key_output_dir: "{{ playbook_dir }}/artifacts/ssh_keys"
+key_output_dir: "{{ playbook_dir }}/../artifacts/ssh_keys"
 keypair_basename: ""
 keypair_comment: ""
 regenerate_keypair: true
 
-vault_addr: https://172.31.14.234:8200
-vault_ca_bundle: /etc/vault.d/tls/vault-ca-bundle.pem
-vault_namespace: ""
+vault_ca_bundle: "{{ playbook_dir }}/../artifacts/vault-ca-bundle.pem"
 vault_kv_mount: secret
 vault_secret_path: ""
 vault_secret_metadata: {}

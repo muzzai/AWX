@@ -26,7 +26,7 @@ aws_tags:
 regenerate_keypair: true
 
 # Vault storage (AppRole env vars supply connection details)
-vault_ca_bundle: "{{ playbook_dir }}/artifacts/vault-ca-bundle.pem"
+vault_ca_bundle: "{{ playbook_dir }}/../artifacts/vault-ca-bundle.pem"
 vault_kv_mount: secret
 vault_secret_path: ""             # defaults to windows/ssh/<instanceName> if left blank
 vault_secret_metadata: {}

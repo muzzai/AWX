@@ -13,7 +13,7 @@ This Ansible project provisions a hardened Windows Server 2025 (English, Full, B
 - Ansible 2.16 or newer with `boto3`, `botocore`, and `hvac` installed.
 - Collections from `collections/requirements.yml` installed (`ansible-galaxy collection install -r collections/requirements.yml`).
 - AWX project set to inject `VAULT_ROLE_ID`, `VAULT_SECRET_ID`, and `VAULT_ADDR` environment variables (optionally `VAULT_NAMESPACE`, `VAULT_CACERT`, or inline `VAULT_CA_CERT_PEM`).
-- The CA bundle trusted by the Vault server is available to the execution environment; by default the play writes any injected PEM to `{{ playbook_dir }}/artifacts/vault-ca-bundle.pem`.
+- The CA bundle trusted by the Vault server is available to the execution environment; by default the play writes any injected PEM to `{{ playbook_dir }}/../artifacts/vault-ca-bundle.pem`.
 - IAM permissions to create EC2 instances, security groups (if `create_security_group`), Route53 records (if enabled), and read the SSM public parameter.
 
 ## Usage in AWX

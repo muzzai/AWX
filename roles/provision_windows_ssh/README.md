@@ -19,7 +19,7 @@ Role that provisions an AWS EC2 Windows Server 2025 instance capable of OpenSSH 
 | `route53_zone_name` | `example.com.` | Hosted zone name (optional when `route53_zone_id` set). |
 | `route53_zone_id` | `""` | Hosted zone ID used when provided. |
 | `route53_record` | `""` | Optional override for the Route53 record name. |
-| `vault_ca_bundle` | `{{ playbook_dir }}/artifacts/vault-ca-bundle.pem` | Location where the CA bundle should exist or be written during the play. |
+| `vault_ca_bundle` | `{{ playbook_dir }}/../artifacts/vault-ca-bundle.pem` | Location where the CA bundle should exist or be written during the play. |
 | `vault_kv_mount` | `secret` | KV v2 mount containing the secret path. |
 | `vault_secret_path` | `""` | Optional override for the KV v2 path; defaults to `windows/ssh/<instanceName>`. |
 | `vault_secret_metadata` | `{}` | Extra metadata stored alongside the key material. |

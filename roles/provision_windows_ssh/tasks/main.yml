@@ -35,6 +35,10 @@
     vault_ca_bundle_effective: "{{ vault_ca_bundle | default(lookup('env', 'VAULT_CACERT'), true) }}"
     vault_ca_cert_pem: "{{ lookup('env', 'VAULT_CA_CERT_PEM') | default('', true) }}"
 
+- name: Derive Vault CA bundle directory
+  ansible.builtin.set_fact:
+    vault_ca_bundle_dir: "{{ vault_ca_bundle_effective | dirname if vault_ca_bundle_effective | length > 0 else '' }}"
+
 - name: Ensure Vault address is available
   ansible.builtin.assert:
     that:
@@ -47,6 +51,16 @@
       - vault_ca_bundle_effective | length > 0
     fail_msg: Set vault_ca_bundle or VAULT_CACERT when injecting VAULT_CA_CERT_PEM.
   when: vault_ca_cert_pem | length > 0
+
+- name: Ensure Vault CA bundle directory exists
+  ansible.builtin.file:
+    path: "{{ vault_ca_bundle_dir }}"
+    state: directory
+    mode: '0700'
+  when:
+    - vault_ca_cert_pem | length > 0
+    - vault_ca_bundle_dir | length > 0
+    - vault_ca_bundle_dir not in ['.']
 
 - name: Materialize Vault CA bundle from injected PEM
   ansible.builtin.copy:
