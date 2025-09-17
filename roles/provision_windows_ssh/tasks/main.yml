@@ -2,12 +2,31 @@
 - name: Ensure required AWS parameters are supplied
   ansible.builtin.assert:
     that:
+      - instanceName | default('') | length > 0
       - aws_subnet_id | length > 0
       - aws_region | length > 0
       - (aws_security_group_ids | length > 0) or create_security_group | bool
       - (not create_security_group) or (aws_vpc_id | length > 0)
     fail_msg: >-
-      Provide aws_subnet_id and either aws_security_group_ids or enable create_security_group with aws_vpc_id.
+      Provide instanceName, aws_subnet_id and either aws_security_group_ids or enable create_security_group with aws_vpc_id.
+
+- name: Normalize Route53 zone name
+  ansible.builtin.set_fact:
+    normalized_route53_zone: "{{ route53_zone_name | default('') | regex_replace('\\.$', '') }}"
+
+- name: Derive naming conventions from instanceName
+  ansible.builtin.set_fact:
+    derived_instance_name: "{{ instanceName }}"
+    derived_security_group_name: "{{ instanceName }}-ssh"
+    derived_keypair_basename: >-
+      {{ keypair_basename if keypair_basename | default('') | length > 0 else instanceName }}
+    derived_keypair_comment: >-
+      {{ keypair_comment if keypair_comment | default('') | length > 0 else instanceName ~ ' via AWX' }}
+    derived_vault_secret_path: >-
+      {{ vault_secret_path if vault_secret_path | default('') | length > 0 else 'windows/ssh/' ~ instanceName }}
+    derived_route53_record: >-
+      {{ route53_record if route53_record | default('') | length > 0 else (normalized_route53_zone | length > 0 | ternary(instanceName ~ '.' ~ normalized_route53_zone, instanceName)) }}
+    derived_tags: "{{ (aws_tags | default({})) | combine({'Name': instanceName}) }}"
 
 - name: Build SSH ingress rule set
   ansible.builtin.set_fact:
@@ -32,9 +51,9 @@
 
 - name: Generate ED25519 keypair for Windows SSH
   community.crypto.openssh_keypair:
-    path: "{{ key_output_dir }}/{{ keypair_basename }}"
+    path: "{{ key_output_dir }}/{{ derived_keypair_basename }}"
     type: ed25519
-    comment: "{{ keypair_comment }}"
+    comment: "{{ derived_keypair_comment }}"
     force: "{{ regenerate_keypair | bool }}"
     mode: '0600'
   register: windows_ssh_keypair
@@ -42,7 +61,7 @@
 
 - name: Read private key from disk when not regenerated
   ansible.builtin.slurp:
-    src: "{{ key_output_dir }}/{{ keypair_basename }}"
+    src: "{{ key_output_dir }}/{{ derived_keypair_basename }}"
   register: existing_private_key
   when: windows_ssh_keypair.private_key is not defined
   no_log: true
@@ -56,23 +75,24 @@
     public_key_material: >-
       {{ windows_ssh_keypair.public_key
          if windows_ssh_keypair.public_key is defined
-         else lookup('file', key_output_dir ~ '/' ~ keypair_basename ~ '.pub') }}
+         else lookup('file', key_output_dir ~ '/' ~ derived_keypair_basename ~ '.pub') }}
   no_log: true
 
 - name: Render Windows OpenSSH bootstrap script
   ansible.builtin.set_fact:
     windows_user_data: "{{ lookup('ansible.builtin.template', 'user_data.ps1.j2') }}"
+  no_log: true
 
 - name: Create security group for SSH when requested
   amazon.aws.ec2_security_group:
-    name: "{{ aws_instance_name }}-ssh"
-    description: "SSH access for {{ aws_instance_name }}"
+    name: "{{ derived_security_group_name }}"
+    description: "SSH access for {{ derived_instance_name }}"
     vpc_id: "{{ aws_vpc_id }}"
     region: "{{ aws_region }}"
     ingress: "{{ ssh_ingress_rules }}"
     purge_rules: true
     purge_rules_egress: false
-    tags: "{{ aws_tags }}"
+    tags: "{{ derived_tags }}"
   register: created_sg
   when: create_security_group | bool
 
@@ -85,7 +105,7 @@
 
 - name: Launch or update Windows instance
   amazon.aws.ec2_instance:
-    name: "{{ aws_instance_name }}"
+    name: "{{ derived_instance_name }}"
     region: "{{ aws_region }}"
     instance_type: "{{ aws_instance_type }}"
     image_id: "{{ resolved_ami_id }}"
@@ -94,8 +114,8 @@
     wait: true
     wait_timeout: 900
     key_name: "{{ omit }}"
-    assign_public_ip: "{{ assign_public_ip | bool }}"
-    tags: "{{ aws_tags }}"
+    assign_public_ip: {{ assign_public_ip | bool }}
+    tags: "{{ derived_tags }}"
     volumes:
       - device_name: "{{ aws_root_device_name }}"
         ebs:
@@ -116,7 +136,7 @@
   ansible.builtin.wait_for:
     host: "{{ ssh_wait_host }}"
     port: 22
-    timeout: "{{ wait_for_ssh_timeout }}"
+    timeout: {{ wait_for_ssh_timeout }}
     delay: 30
   when: ec2_instance.changed | bool
 
@@ -129,7 +149,7 @@
     role_id: "{{ vault_role_id }}"
     secret_id: "{{ vault_secret_id }}"
     mount_point: "{{ vault_kv_mount }}"
-    path: "{{ vault_secret_path }}"
+    path: "{{ derived_vault_secret_path }}"
     data:
       private_key: "{{ private_key_material }}"
       public_key: "{{ public_key_material }}"
@@ -142,21 +162,22 @@
 
 - name: Remove local private key material
   ansible.builtin.file:
-    path: "{{ key_output_dir }}/{{ keypair_basename }}"
+    path: "{{ key_output_dir }}/{{ derived_keypair_basename }}"
     state: absent
 
 - name: Remove local public key material
   ansible.builtin.file:
-    path: "{{ key_output_dir }}/{{ keypair_basename }}.pub"
+    path: "{{ key_output_dir }}/{{ derived_keypair_basename }}.pub"
     state: absent
 
 - name: Optionally create Route53 A record
   amazon.aws.route53:
     state: present
-    zone: "{{ route53_zone }}"
-    record: "{{ route53_record }}"
+    zone: "{{ normalized_route53_zone if (route53_zone_id | default('') | length == 0 and normalized_route53_zone | length > 0) else omit }}"
+    zone_id: "{{ route53_zone_id if (route53_zone_id | default('') | length > 0) else omit }}"
+    record: "{{ derived_route53_record }}"
     type: A
-    ttl: "{{ route53_ttl }}"
+    ttl: {{ route53_ttl }}
     overwrite: true
     value: "{{ ssh_wait_host }}"
   when: route53_enabled | bool
@@ -168,4 +189,5 @@
       public_ip: "{{ ec2_instance.instances[0].public_ip_address | default('N/A') }}"
       private_ip: "{{ ec2_instance.instances[0].private_ip_address }}"
       ssh_user: "{{ windows_admin_username }}"
-      vault_secret: "{{ vault_kv_mount }}/data/{{ vault_secret_path }}"
+      vault_secret: "{{ vault_kv_mount }}/data/{{ derived_vault_secret_path }}"
+      route53_record: "{{ derived_route53_record if route53_enabled | bool else 'Route53 disabled' }}"

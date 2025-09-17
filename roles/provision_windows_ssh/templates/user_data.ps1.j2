@@ -63,6 +63,34 @@ try {
     } else {
         Write-Warning "Profile path $AdminProfile not found during bootstrap"
     }
+
+    $TempPassword = '{{ windows_temporary_password }}'
+    if ($TempPassword -and $TempPassword.Length -gt 0) {
+        Write-Host 'Setting temporary password for Administrator account'
+        if (Get-Module -ListAvailable -Name 'Microsoft.PowerShell.LocalAccounts') {
+            Import-Module Microsoft.PowerShell.LocalAccounts | Out-Null
+            $SecurePass = ConvertTo-SecureString $TempPassword -AsPlainText -Force
+            $Admin = Get-LocalUser -Name '{{ windows_admin_username }}' -ErrorAction SilentlyContinue
+            if ($Admin) {
+                $Admin | Set-LocalUser -Password $SecurePass
+            } else {
+                Write-Warning 'Local Administrator account not found; skipping password update'
+            }
+        } else {
+            cmd /c "net user {{ windows_admin_username }} `"$TempPassword`"" | Out-Null
+        }
+    }
+
+    $EnableRdp = ${{ 'true' if windows_enable_rdp | bool else 'false' }}
+    if ($EnableRdp) {
+        Write-Host 'Enabling Remote Desktop access'
+        Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name 'fDenyTSConnections' -Value 0
+        Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'
+    } else {
+        Write-Host 'Disabling Remote Desktop access'
+        Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name 'fDenyTSConnections' -Value 1
+        Disable-NetFirewallRule -DisplayGroup 'Remote Desktop'
+    }
 }
 catch {
     Write-Error $_

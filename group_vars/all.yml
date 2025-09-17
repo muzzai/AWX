@@ -1,6 +1,7 @@
 ---
+instanceName: awx-win-ssh
+
 aws_region: us-east-2
-aws_instance_name: awx-win-ssh
 aws_instance_type: m6i.large
 aws_subnet_id: ""
 aws_vpc_id: ""
@@ -21,21 +22,24 @@ aws_tags:
 ami_ssm_parameter: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base
 
 route53_enabled: false
-route53_zone: example.com.
-route53_record: "{{ aws_instance_name }}.{{ route53_zone }}"
+route53_zone_name: example.com.
+route53_zone_id: ""
+route53_record: ""
 route53_ttl: 60
 
 key_output_dir: "{{ playbook_dir }}/artifacts/ssh_keys"
-keypair_basename: "{{ aws_instance_name }}"
-keypair_comment: "{{ aws_instance_name }} via AWX"
+keypair_basename: ""
+keypair_comment: ""
 regenerate_keypair: true
 
 vault_addr: https://172.31.14.234:8200
 vault_ca_bundle: /etc/vault.d/tls/vault-ca-bundle.pem
 vault_namespace: ""
 vault_kv_mount: secret
-vault_secret_path: "windows/ssh/{{ aws_instance_name }}"
+vault_secret_path: ""
 vault_secret_metadata: {}
 
 windows_admin_username: Administrator
+windows_temporary_password: ""
+windows_enable_rdp: false
 wait_for_ssh_timeout: 900

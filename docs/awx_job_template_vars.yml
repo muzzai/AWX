@@ -1,0 +1,50 @@
+# Core identity
+instanceName: awx-win-ssh
+
+# AWS networking
+aws_region: us-east-2
+aws_subnet_id: subnet-xxxxxxxx
+aws_security_group_ids:
+  - sg-xxxxxxxx
+create_security_group: false
+aws_vpc_id: vpc-xxxxxxxx          # required when create_security_group: true
+assign_public_ip: true
+ssh_ingress_cidr_blocks:
+  - 203.0.113.0/24
+
+# EC2 instance configuration
+aws_instance_type: m6i.large
+aws_volume_size_gb: 80
+aws_volume_type: gp3
+aws_root_device_name: /dev/sda1
+aws_tags:
+  Project: AWX-Windows-SSH
+  ManagedBy: Ansible
+  Environment: production
+
+# OpenSSH key management
+regenerate_keypair: true
+
+# Vault storage
+vault_addr: https://172.31.14.234:8200
+vault_ca_bundle: /etc/vault.d/tls/vault-ca-bundle.pem
+vault_namespace: ""
+vault_kv_mount: secret
+vault_secret_path: ""             # defaults to windows/ssh/<instanceName> if left blank
+vault_secret_metadata: {}
+
+# Route53 (optional)
+route53_enabled: false
+route53_zone_name: example.com.
+route53_zone_id: ""
+route53_record: ""                # defaults to <instanceName>.<route53_zone_name> when blank
+route53_ttl: 60
+
+# Windows settings
+windows_admin_username: Administrator
+windows_temporary_password: ""
+windows_enable_rdp: false
+wait_for_ssh_timeout: 900
+
+# AMI lookup override (rarely needed)
+ami_ssm_parameter: /aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base

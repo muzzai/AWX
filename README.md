@@ -1,6 +1,6 @@
 # AWX Windows SSH Provisioner
 
-This repository contains an Ansible project built for AWX that provisions an AWS EC2 Windows Server 2025 (English, Full, Base) instance configured for OpenSSH-only administration. It generates an ED25519 keypair, stores the private key in HashiCorp Vault KV v2 via AppRole, and optionally manages Route53 DNS.
+This repository contains an Ansible project built for AWX that provisions an AWS EC2 Windows Server 2025 (English, Full, Base) instance configured for OpenSSH-only administration. It derives resource names from a single `instanceName`, generates an ED25519 keypair, stores the private key in HashiCorp Vault KV v2 via AppRole, and optionally manages Route53 DNS.
 
 ## Layout
 - `ansible.cfg` — controller defaults tuned for AWX execution environments.
@@ -21,9 +21,11 @@ This repository contains an Ansible project built for AWX that provisions an AWS
 4. Run the playbook with the required AWS inputs:
    ```bash
    ansible-playbook playbooks/provision-windows-ssh.yml \
+     -e instanceName=prod-awx-win \
      -e aws_subnet_id=subnet-1234567890abcdef \
      -e aws_security_group_ids='["sg-1234567890abcdef"]' \
-     -e vault_secret_path=windows/ssh/prod-admin
+     -e windows_temporary_password='SuperSecret123!' \
+     -e windows_enable_rdp=false
    ```
 
-When the job finishes, retrieve the private key from Vault (`secret/data/windows/ssh/prod-admin` by default) and connect using `ssh -i` against the reported host/IP.
+When the job finishes, retrieve the private key from Vault (`secret/data/windows/ssh/prod-awx-win` by default) and connect using `ssh -i` against the reported host/IP. Enable Route53 by setting `route53_enabled: true` and providing either `route53_zone_name` or `route53_zone_id`.
