@@ -28,6 +28,35 @@
       {{ route53_record if route53_record | default('') | length > 0 else (normalized_route53_zone | length > 0 | ternary(instanceName ~ '.' ~ normalized_route53_zone, instanceName)) }}
     derived_tags: "{{ (aws_tags | default({})) | combine({'Name': instanceName}) }}"
 
+- name: Collect Vault connection settings
+  ansible.builtin.set_fact:
+    vault_addr_effective: "{{ vault_addr | default(lookup('env', 'VAULT_ADDR'), true) }}"
+    vault_namespace_effective: "{{ vault_namespace | default(lookup('env', 'VAULT_NAMESPACE') | default('', true), true) }}"
+    vault_ca_bundle_effective: "{{ vault_ca_bundle | default(lookup('env', 'VAULT_CACERT'), true) }}"
+    vault_ca_cert_pem: "{{ lookup('env', 'VAULT_CA_CERT_PEM') | default('', true) }}"
+
+- name: Ensure Vault address is available
+  ansible.builtin.assert:
+    that:
+      - vault_addr_effective | length > 0
+    fail_msg: Vault address must be provided via vault_addr variable or VAULT_ADDR environment variable.
+
+- name: Ensure Vault CA bundle path is set when PEM provided
+  ansible.builtin.assert:
+    that:
+      - vault_ca_bundle_effective | length > 0
+    fail_msg: Set vault_ca_bundle or VAULT_CACERT when injecting VAULT_CA_CERT_PEM.
+  when: vault_ca_cert_pem | length > 0
+
+- name: Materialize Vault CA bundle from injected PEM
+  ansible.builtin.copy:
+    content: "{{ vault_ca_cert_pem }}"
+    dest: "{{ vault_ca_bundle_effective }}"
+    mode: '0600'
+  when:
+    - vault_ca_cert_pem | length > 0
+    - vault_ca_bundle_effective | length > 0
+
 - name: Coerce runtime booleans and integers
   ansible.builtin.set_fact:
     assign_public_ip_bool: "{{ assign_public_ip | bool }}"
@@ -148,9 +177,9 @@
 
 - name: Store private key in HashiCorp Vault
   community.hashi_vault.vault_kv2_write:
-    url: "{{ vault_addr }}"
-    ca_cert: "{{ vault_ca_bundle }}"
-    namespace: "{{ vault_namespace if (vault_namespace | default('') | length) > 0 else omit }}"
+    url: "{{ vault_addr_effective }}"
+    ca_cert: "{{ vault_ca_bundle_effective if vault_ca_bundle_effective | length > 0 else omit }}"
+    namespace: "{{ vault_namespace_effective if vault_namespace_effective | length > 0 else omit }}"
     auth_method: approle
     role_id: "{{ vault_role_id }}"
     secret_id: "{{ vault_secret_id }}"

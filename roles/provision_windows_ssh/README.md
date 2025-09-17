@@ -19,19 +19,16 @@ Role that provisions an AWS EC2 Windows Server 2025 instance capable of OpenSSH 
 | `route53_zone_name` | `example.com.` | Hosted zone name (optional when `route53_zone_id` set). |
 | `route53_zone_id` | `""` | Hosted zone ID used when provided. |
 | `route53_record` | `""` | Optional override for the Route53 record name. |
-| `key_output_dir` | `{{ playbook_dir }}/artifacts/ssh_keys` | Temporary location for generated keyfiles. |
-| `regenerate_keypair` | `true` | Always generate a fresh key on each run when true. |
-| `vault_addr` | `https://172.31.14.234:8200` | Vault endpoint URL. |
-| `vault_ca_bundle` | `/etc/vault.d/tls/vault-ca-bundle.pem` | CA bundle path on the controller. |
-| `vault_namespace` | `""` | Optional Vault namespace. Omitted when empty. |
+| `vault_ca_bundle` | `{{ playbook_dir }}/artifacts/vault-ca-bundle.pem` | Location where the CA bundle should exist or be written during the play. |
 | `vault_kv_mount` | `secret` | KV v2 mount containing the secret path. |
 | `vault_secret_path` | `""` | Optional override for the KV v2 path; defaults to `windows/ssh/<instanceName>`. |
+| `vault_secret_metadata` | `{}` | Extra metadata stored alongside the key material. |
 | `windows_admin_username` | `Administrator` | Account that gains SSH/RDP access. |
 | `windows_temporary_password` | `""` | Optional temporary password applied to the Administrator account. |
 | `windows_enable_rdp` | `false` | Enables or disables Remote Desktop. When true, firewall rules are opened and the supplied password is used for RDP. |
 | `wait_for_ssh_timeout` | `900` | Seconds to wait for the OpenSSH service to accept connections. |
 
-AppRole credentials are passed in at runtime using the environment variables `VAULT_ROLE_ID` and `VAULT_SECRET_ID`.
+AppRole credentials and Vault connection details are expected via environment variables (`VAULT_ROLE_ID`, `VAULT_SECRET_ID`, `VAULT_ADDR`, optional `VAULT_NAMESPACE`, and either `VAULT_CACERT` or inline `VAULT_CA_CERT_PEM`). Override the variables above only when deviating from those defaults.
 
 ## Outputs
-The role reports the instance ID, IP addresses, SSH username, Route53 record (when enabled), and the Vault KV v2 path containing the stored key material. The private key never remains on disk after the play completes.
+The role reports the instance ID, IP addresses, Route53 record (when enabled), and the Vault KV v2 path containing the stored key material. The private key never remains on disk after the play completes.

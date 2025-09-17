@@ -1,0 +1,3 @@
+artifacts/vault-ca-bundle.pem
+artifacts/ssh_keys/*
+!artifacts/ssh_keys/.gitkeep

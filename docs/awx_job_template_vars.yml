@@ -4,10 +4,10 @@ instanceName: awx-win-ssh
 # AWS networking
 aws_region: us-east-2
 aws_subnet_id: subnet-xxxxxxxx
+aws_vpc_id: vpc-xxxxxxxx          # required when create_security_group: true
 aws_security_group_ids:
   - sg-xxxxxxxx
 create_security_group: false
-aws_vpc_id: vpc-xxxxxxxx          # required when create_security_group: true
 assign_public_ip: true
 ssh_ingress_cidr_blocks:
   - 203.0.113.0/24
@@ -25,10 +25,8 @@ aws_tags:
 # OpenSSH key management
 regenerate_keypair: true
 
-# Vault storage
-vault_addr: https://172.31.14.234:8200
-vault_ca_bundle: /etc/vault.d/tls/vault-ca-bundle.pem
-vault_namespace: ""
+# Vault storage (AppRole env vars supply connection details)
+vault_ca_bundle: "{{ playbook_dir }}/artifacts/vault-ca-bundle.pem"
 vault_kv_mount: secret
 vault_secret_path: ""             # defaults to windows/ssh/<instanceName> if left blank
 vault_secret_metadata: {}
